@@ -1,0 +1,36 @@
+<template>
+    <lightning-card title="Related Transactions" icon-name="utility:money">
+        <div class="slds-var-m-around_medium">
+            <template if:true={transactions.data}> 
+                <div class="slds-col">
+                    <span><p>Selected Records: <b style="color:red;">{recordsCount}</b></p></span>
+                    <lightning-button label="Add"
+                        icon-name="utility:add"
+                        variant="brand" 
+                        onclick={addTransaction}></lightning-button>
+
+                        <lightning-button label="Delete"
+                                          icon-name="utility:delete"
+                                          disabled={isDeleteButtonDisabled}
+                                          variant="destructive" 
+                                          onclick={deleteTransactions}
+                                          style="margin-left: 2%"></lightning-button>
+
+                </div>                
+
+                <lightning-datatable
+                    key-field="Id" 
+                    data={transactions.data}
+                    columns={columns} 
+                    onsave={handleSave} 
+                    onrowselection={getSelectedRecords}
+                    draft-values={draftValues} > 
+                </lightning-datatable>
+            </template>
+            <template if:true={transactions.error}> 
+                <!-- if some error is appeared do something -->
+                {transactions.error.body.message}
+            </template>
+        </div>
+    </lightning-card>
+</template>
