@@ -49,7 +49,7 @@ global class AccountTotalAmountCounter implements Database.Batchable<SObject>{
         return [SELECT Id, (SELECT Amount FROM Opportunities WHERE StageName = 'Closed Won') FROM Account WHERE ParentId = :parentId];
     }
 
-    private void updateAccounts(Account acc, List<Account> updatedAccountList) {
+    @TestVisible private void updateAccounts(Account acc, List<Account> updatedAccountList) {
         List<Opportunity> relatedOpps = acc.Opportunities;
         List<Account> childAccounts = getChildAccounts(acc.Id);
         if(childAccounts.size() == 0) {
