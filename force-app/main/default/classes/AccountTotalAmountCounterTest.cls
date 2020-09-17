@@ -5,20 +5,23 @@ private with sharing class AccountTotalAmountCounterTest {
     
     @testSetup static void setup() {
         // create 6 accounts
-        List<Account> accountList = new List<Account>(); 
         List<Opportunity> opptyList = new List<Opportunity>(); 
         Account parentAcc = null;
         for (Integer i = 0; i < 6; i++) {
             Account acc = new Account(Name = 'TestAcc' + i + Datetime.now(), 
                                       ParentId = (parentAcc != null ? parentAcc.Id : null));
+            if (i == 2) {
+                Account acc1 = new Account(Name = 'TestAcc' + Datetime.now(), 
+                                      ParentId = (parentAcc != null ? parentAcc.Id : null));
+                insert acc1;
+                opptyList.add(generateOpportunity(acc1));     
+            }                                            
             // insert is used in loop because its Id is needed as ParentId for next account
             insert acc;     
-            parentAcc = acc;       
-            accountList.add(acc);
+            parentAcc = acc;      
             opptyList.add(generateOpportunity(acc));            
         }
         insert opptyList;
-        //insert accountList;
     }
 
     private static Opportunity generateOpportunity(Account acc) {
@@ -48,7 +51,9 @@ private with sharing class AccountTotalAmountCounterTest {
         counter.updateAccounts(accRoot, resultList);
         Map<Id, Account> resultMap = new Map<Id, Account>(resultList);
         System.assertEquals(2 * OPPORTUNITY_AMOUNT, resultMap.get(accLeafParent.Id).TotalAmount__c);
-        System.assertEquals(6 * OPPORTUNITY_AMOUNT, resultMap.get(accRoot.Id).TotalAmount__c);
+        // root = TestAccount0 
+        // TestAccount1 has 2 child accounts, so root account has sort of 6 child opportunities and 1 own 
+        System.assertEquals(7 * OPPORTUNITY_AMOUNT, resultMap.get(accRoot.Id).TotalAmount__c);
         Test.stopTest();
     }
 
