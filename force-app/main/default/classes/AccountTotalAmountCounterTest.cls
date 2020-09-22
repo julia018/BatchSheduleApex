@@ -47,8 +47,10 @@ private with sharing class AccountTotalAmountCounterTest {
         System.assertEquals(null, accRoot.TotalAmount__c);
         Test.startTest();
         AccountTotalAmountCounter counter = new AccountTotalAmountCounter();
-        List<Account> resultList = new List<Account>();        
-        counter.updateAccounts(accRoot, resultList);
+        List<Account> resultList = new List<Account>();     
+        List<Account> topLevelAccounts = new List<Account>();
+        topLevelAccounts.add(accRoot);   
+        counter.updateAccounts(topLevelAccounts, resultList);
         Map<Id, Account> resultMap = new Map<Id, Account>(resultList);
         System.assertEquals(2 * OPPORTUNITY_AMOUNT, resultMap.get(accLeafParent.Id).TotalAmount__c);
         // root = TestAccount0 
@@ -79,8 +81,10 @@ private with sharing class AccountTotalAmountCounterTest {
         System.assertEquals(null, accRoot.TotalAmount__c);
         Test.startTest();
         AccountTotalAmountCounter counter = new AccountTotalAmountCounter();
-        List<Account> resultList = new List<Account>();        
-        counter.updateAccounts(accRoot, resultList);
+        List<Account> resultList = new List<Account>();   
+        List<Account> topLevelAccountList = new List<Account>(); 
+        topLevelAccountList.add(accRoot);
+        counter.updateAccounts(topLevelAccountList, resultList);
         upsert resultList;
         Map<Id, Account> resultMap = new Map<Id, Account>(resultList);
         Decimal accLeafParentStartAmount = resultMap.get(accLeafParent.Id).TotalAmount__c;
@@ -91,7 +95,7 @@ private with sharing class AccountTotalAmountCounterTest {
         insert newOpp;
         
         List<Account> newResultList = new List<Account>(); 
-        counter.updateAccounts(accRoot, newResultList);
+        counter.updateAccounts(topLevelAccountList, newResultList);
         upsert newResultList;
 
         // check new total amount

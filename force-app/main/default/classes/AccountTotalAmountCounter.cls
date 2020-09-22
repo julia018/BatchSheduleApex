@@ -10,9 +10,13 @@ global class AccountTotalAmountCounter implements Database.Batchable<SObject>{
     }
 
     global void execute(Database.BatchableContext bc, List<Account> records){
-
+        List<Account> accountsToUpdate = new List<Account>();
         for (Account acc : records) {
-            updateAccounts(acc, accountsToUpdate);
+            // list represents accounts for current level (for recursion)
+            List<Account> levelAccounts = new List<Account>();
+            levelAccounts.add(acc);
+            // start recursion for parent acc
+            updateAccounts(levelAccounts, accountsToUpdate);
         }
         upsert accountsToUpdate;
     }  
@@ -28,51 +32,58 @@ global class AccountTotalAmountCounter implements Database.Batchable<SObject>{
         System.debug(job.NumberOfErrors + ' errors.');    
     } 
 
-    private Decimal getOwnOpportunitiesAmount(List<Opportunity> opps) {
+    @TestVisible private void updateAccounts(List<Account> currentLevelAccounts, List<Account> updatedAccountList) {
         
-        Decimal sum = 0;
-        for (Opportunity oppty : opps) {
-            sum += oppty.Amount;
-        }
-        return sum;
-    }   
-
-    
-    private Decimal countAccountOpportsAmount(Account acc) {
-        Decimal newAccountTotalAmount = 0;
-        for (Opportunity opp : acc.Opportunities) {
-            newAccountTotalAmount += opp.Amount;
+        // get accounts from level below
+        List<Account> belowLevelAccounts = getAccountsByParentIdList(new Map<Id, Account>(currentLevelAccounts));
+        if (belowLevelAccounts.size() != 0) {
+            // not leaves - start recursion for updating below accounts
+            updateAccounts(belowLevelAccounts, updatedAccountList);            
         } 
-        return newAccountTotalAmount;
-    }
-
-    private List<Account> getChildAccounts(Id parentId) {
-        return [SELECT Id, (SELECT Amount 
+        // here all accounts below are updated
+        for(Account acc: currentLevelAccounts) {
+            updateAccountTotalAmount(acc, belowLevelAccounts);
+        }
+        updatedAccountList.addAll(currentLevelAccounts);
+    }  
+    
+    private List<Account> getAccountsByParentIdList(Map<Id, Account> parentAccountsMap) {
+        return [SELECT Id, ParentId, (SELECT Amount 
                             FROM Opportunities 
                             WHERE StageName = 'Closed Won') 
                 FROM Account 
-                WHERE ParentId = :parentId];
+                WHERE ParentId in : parentAccountsMap.keySet()];
     }
 
-    @TestVisible private void updateAccounts(Account acc, List<Account> updatedAccountList) {
-        System.debug('Total number of queries allowed: ' + Limits.getLimitQueries());
-        List<Opportunity> relatedOpps = acc.Opportunities;
-        List<Account> childAccounts = getChildAccounts(acc.Id);
-        if (childAccounts.size() == 0) {
-            // account tree leaves
-            acc.TotalAmount__c = countAccountOpportsAmount(acc);
-            updatedAccountList.add(acc);
-        } else {
-            // not leaves
-            Decimal childAmountsSum = 0;
-            for (Account notLeafAccount : childAccounts) {
-                updateAccounts(notLeafAccount, updatedAccountList);
-                childAmountsSum += notLeafAccount.TotalAmount__c;
+    private void updateAccountTotalAmount(Account account, List<Account> updatedBelowLevelAccounts) {
+        Decimal newTotalAmount = 0;
+        for(Account updatedAccount: updatedBelowLevelAccounts) {            
+            if(updatedAccount.ParentId.equals(account.Id)) {
+                newTotalAmount += updatedAccount.TotalAmount__c;
             }
-
-            acc.TotalAmount__c = childAmountsSum + countAccountOpportsAmount(acc);
-            updatedAccountList.add(acc);
         }
-    }   
+        newTotalAmount += getOpportunitiesTotalAmount(account);
+        account.TotalAmount__c = newTotalAmount;
+    }
+
+    private Decimal getOpportunitiesTotalAmount(Account acc) {
+        Decimal result = 0;
+        for(Opportunity opp: acc.Opportunities) {
+            result += opp.Amount;
+        }
+        return result;
+    }
+
+    
+    
+    private void updateAccountTreeLeaves(List<Account> leavesAccounts) {
+        for(Account leafAcount: leavesAccounts) {
+            Decimal opportunitiesTotalAmount = 0;
+            for(Opportunity opp: leafAcount.Opportunities) {
+                opportunitiesTotalAmount += opp.Amount;
+            }
+            leafAcount.TotalAmount__c = opportunitiesTotalAmount;
+        }
+    }
     
 }
